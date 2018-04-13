@@ -21,13 +21,13 @@ int16_t NextLB(uint32_t sector);
 
 
 struct __attribute__((__packed__)) DirectoryEntry{
-	char DIR_NAME[1];
-	uint8_t DIR_Attr;
-	uint8_t Unused1[8];
-	uint16_t DIR_FirstClusterHigh;
-	uint8_t Unused2[4];
-	uint16_t DIR_FirstClusterLow;
-	uint32_t DIR_FileSize;
+    char DIR_Name[11];
+    uint8_t Dir_Attr;
+    uint8_t Unused1[8];
+    uint16_t DIR_FirstClusterHigh;
+    uint8_t Unused[4];
+    uint16_t DIR_FirstClusterLow;
+    uint32_t DIR_FileSize;
 };
 
 char  OEMNAME[8];
@@ -94,44 +94,45 @@ int main(void)
     		if(open != 0)
     			printf("Error: File system image already open.\n");
     		else if(fp != NULL)
+    		{
     			open = 1;
+ 				fseek(fp, 3, SEEK_SET); //(stream, bytes, operation)
+				fread(&OEMNAME, 8, 1, fp); //(address, length of item, number of items, stream)
+
+				fseek(fp, 11, SEEK_SET); //(stream, bytes, operation)
+				fread(&BytsPerSec, 2, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 13, SEEK_SET); //(stream, bytes, operation)
+				fread(&SecPerClus, 1, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 14, SEEK_SET); //(stream, bytes, operation)
+				fread(&RsvdSecCnt, 2, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 16, SEEK_SET); //(stream, bytes, operation)
+				fread(&NumFATs, 1, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 17, SEEK_SET); //(stream, bytes, operation)
+				fread(&RootEntCnt, 2, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 36, SEEK_SET); //(stream, bytes, operation)
+				fread(&FATSz32, 4, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 44, SEEK_SET); //(stream, bytes, operation)
+				fread(&RootClus, 4, 1, fp); //(address, length of item, number of items, stream)
+			  
+				fseek(fp, 71, SEEK_SET); //(stream, bytes, operation)
+				fread(&VolLab, 11, 1, fp); //(address, length of item, number of items, stream)
+
+				FATOffset = (RsvdSecCnt*BytsPerSec);
+				TotalFATSize = (NumFATs*FATSz32*BytsPerSec);
+				ClusterOffset = (FATOffset+TotalFATSize);
+    		}
     		else
     			printf("Error: File system image not found.\n");
     	}
 
     	if(strcmp(token[0],"info") == 0)
     	{
-			  
-			fseek(fp, 3, SEEK_SET); //(stream, bytes, operation)
-			fread(&OEMNAME, 8, 1, fp); //(address, length of item, number of items, stream)
-
-			fseek(fp, 11, SEEK_SET); //(stream, bytes, operation)
-			fread(&BytsPerSec, 2, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 13, SEEK_SET); //(stream, bytes, operation)
-			fread(&SecPerClus, 1, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 14, SEEK_SET); //(stream, bytes, operation)
-			fread(&RsvdSecCnt, 2, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 16, SEEK_SET); //(stream, bytes, operation)
-			fread(&NumFATs, 1, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 17, SEEK_SET); //(stream, bytes, operation)
-			fread(&RootEntCnt, 2, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 36, SEEK_SET); //(stream, bytes, operation)
-			fread(&FATSz32, 4, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 44, SEEK_SET); //(stream, bytes, operation)
-			fread(&RootClus, 4, 1, fp); //(address, length of item, number of items, stream)
-			  
-			fseek(fp, 71, SEEK_SET); //(stream, bytes, operation)
-			fread(&VolLab, 11, 1, fp); //(address, length of item, number of items, stream)
-			  
-			FATOffset = (RsvdSecCnt*BytsPerSec);
-			TotalFATSize = (NumFATs*FATSz32*BytsPerSec);
-			ClusterOffset = (FATOffset+TotalFATSize);
 			  
 			printf("\nOEMNAME:\t%s\n", &OEMNAME);
 			printf("BytsPerSec:\t%d\n", BytsPerSec);
