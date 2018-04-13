@@ -15,14 +15,9 @@
 
 #define MAX_NUM_ARGUMENTS 5     // Mav shell only supports five arguments
 
-int LBAToOffset(int32_t sector);
-int16_t NextLB(uint32_t sector);
-
-
-
 struct __attribute__((__packed__)) DirectoryEntry{
     char DIR_Name[11];
-    uint8_t Dir_Attr;
+    uint8_t DIR_Attr;
     uint8_t Unused1[8];
     uint16_t DIR_FirstClusterHigh;
     uint8_t Unused[4];
@@ -38,15 +33,46 @@ short NumFATs;
 int   RootEntCnt;
 long  FATSz32;
 long  RootClus;
-char  VolLab[11];		  
+char  VolLab[11];	
+
+FILE* fp;
+
 long FATOffset = 0;
 long TotalFATSize = 0;
 long ClusterOffset = 0;
 
+int i = 0;
+int root = 0;
+int current = 0;
+
+struct DirectoryEntry dir[16];
+
+int LBAToOffset ( int32_t sector )
+{
+   return ( (sector - 2) * BytsPerSec) + (BytsPerSec * RsvdSecCnt) + (NumFATs * FATSz32 * BytsPerSec );
+}
+
+int16_t NextLB ( uint32_t sector )
+{
+   uint32_t FATAddress = ( BytsPerSec * RsvdSecCnt ) + ( sector * 4 );
+   int16_t val;
+   fseek ( fp, FATAddress, SEEK_SET );
+   fread ( &val, 2, 1, fp );
+   return val;
+}
+
+void readdir()
+{
+    for (i=0;i<16;i++)
+    {
+       fread(&dir[i], 1, 32, fp);
+    }
+}
+
+
 int main(void)
 {
 	char * cmd_str = (char*) malloc( MAX_COMMAND_SIZE );
-	FILE* fp = NULL;
 	int open = 0;
 	//long Root_Directory = 0;
 
@@ -126,6 +152,11 @@ int main(void)
 				FATOffset = (RsvdSecCnt*BytsPerSec);
 				TotalFATSize = (NumFATs*FATSz32*BytsPerSec);
 				ClusterOffset = (FATOffset+TotalFATSize);
+
+				root = ClusterOffset;
+       			current = root;
+       			fseek(fp, root, SEEK_SET);
+				readdir();
     		}
     		else
     			printf("Error: File system image not found.\n");
@@ -133,27 +164,39 @@ int main(void)
 
     	if(strcmp(token[0],"info") == 0)
     	{
-			  
-			printf("\nOEMNAME:\t%s\n", &OEMNAME);
-			printf("BytsPerSec:\t%d\n", BytsPerSec);
-			printf("SecPerClus:\t%d\n", SecPerClus);
-			printf("RsvdSecCnt:\t%d\n", RsvdSecCnt);
-			printf("NumFATs:\t%d\n", NumFATs);
-			printf("RootEntCnt:\t%d\n", RootEntCnt);
-			printf("FATSz32:\t%d\n", FATSz32);
-			printf("RootClus:\t%d\n", RootClus);
-			printf("VolLab:\t%s\n\n", &VolLab);
-			  
-			printf("FATOffset:\t%d\n", FATOffset);
-			printf("TotalFATSize:\t%d\n", TotalFATSize);
-	    	printf("ClusterOffset:\t%d\n\n", ClusterOffset);
+    		printf("Attribute\tBase-10\tHex\n---------------\t-------\t----\n");
+			printf("BPB_BytsPerSec:\t%d\t%x\n", BytsPerSec, BytsPerSec);
+			printf("BPB_SecPerClus:\t%d\t%x\n", SecPerClus, SecPerClus);
+			printf("BPB_RsvdSecCnt:\t%d\t%x\n", RsvdSecCnt, RsvdSecCnt);
+			printf("BPB_NumFATs:\t%d\t%x\n", NumFATs, NumFATs);
+			printf("BPB_FATSz32:\t%ld\t%lx\n\n", FATSz32, FATSz32);
+    	}
 
-	    	/*printf("Root Directory Data\n-----------------------\n");
-	    	fseek(fp,(NumFATs*FATSz32*BytsPerSec) + (RsvdSecCnt*BytsPerSec),SEEK_SET);
-	    	fread(&Root_Directory,16,32,fp);
-	    	Root_Directory = (NumFATs*FATSz32*BytsPerSec) + (RsvdSecCnt*BytsPerSec);
-	    	printf("%x",Root_Directory);*/
+    	if(strcmp(token[0],"ls") == 0)
+    	{
 
+    		for ( i = 0; i < 16 ; i++)
+          	{
+             	if ( ( dir[i].DIR_Attr == 0x01 ) || ( dir[i].DIR_Attr == 0x10 ) || ( dir[i].DIR_Attr == 0x20 ) )
+             	{
+                	printf ("%s\t%x\n", strndup(dir[i].DIR_Name,11), LBAToOffset(dir[i].DIR_FirstClusterLow));
+             	}
+          	}
+    	}
+
+    	if(strcmp(token[0],"cd") == 0)
+    	{
+
+    	}
+
+    	if(strcmp(token[0],"volume") == 0)
+    	{
+    		if(VolLab==NULL)
+    		{
+    			printf("Error: volume name not found\n");
+    		}else{
+    			printf("Volume name: \"%11.11s\"\n", VolLab);
+    		}
     	}
 
     	if(strcmp(token[0],"close") == 0)
@@ -167,18 +210,4 @@ int main(void)
     		}
     	}
 	}
-}
-
-int16_t NextLB(uint32_t sector,FILE *fp)
-{
-	uint32_t FATAddress = (BytsPerSec*RsvdSecCnt) + (sector * 4);
-	int16_t val;
-	fseek(fp, FATAddress,SEEK_SET);
-	fread(&val,2,1,fp);
-	return val;
-}
-
-int LBAToOffset(int32_t sector)
-{
-	return ((sector - 2) * BytsPerSec) + (BytsPerSec * RsvdSecCnt) + (NumFATs * FATSz32 * BytsPerSec);
 }
